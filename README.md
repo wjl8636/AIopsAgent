@@ -2,7 +2,7 @@
 
 > **项目简介**：基于 **Claude Agent SDK** 的 AIOps 故障诊断与自愈系统。告警进来，Agent 用 kubectl/curl/git 这些**真实 CLI** 去连真实可观测栈（Prometheus/Jaeger）与真实公开 GitHub 代码仓，完成「告警 → 根因诊断 → 风险分级处置 → 自动修复」全链路闭环：低风险线上操作自动止血、高风险操作发飞书卡片交人工、代码 bug 自动改码提 PR。诊断过程带 Skill 排查手册按需加载 + Agentic RAG 历史工单语义检索，每次诊断沉淀进 Milvus 向量库形成经验积累。这不是"假装调用工具"的 demo，而是**真机跑通**的端到端 Agent。
 
-把告警变成**根因诊断 + 分级处置 + 自动修复**：低风险线上操作（滚动重启/迁移/抬高资源上限单个工作负载）Agent 自动执行止血、高风险操作（redis/db/删除/改集群/缩容）发飞书卡片交人工，代码 bug 类自动改码并提 PR（人工评审合并），混合根因两条腿都走。「能自动执行哪些操作」由代码层一份可枚举的白名单硬控（不靠提示词）。基于 **Claude Agent SDK** 单引擎、两趟、按风险分级处置。配套教学文档见飞书《[AIOps-Agent-简历项目教学文档](https://zcnii5t1bwjj.feishu.cn/docx/LJSUdmaZrop80UxCGg9ch986nRg)》。
+把告警变成**根因诊断 + 分级处置 + 自动修复**：低风险线上操作（滚动重启/迁移/抬高资源上限单个工作负载）Agent 自动执行止血、高风险操作（redis/db/删除/改集群/缩容）发飞书卡片交人工，代码 bug 类自动改码并提 PR（人工评审合并），混合根因两条腿都走。「能自动执行哪些操作」由代码层一份可枚举的白名单硬控（不靠提示词）。基于 **Claude Agent SDK** 单引擎、两趟、按风险分级处置。源码见 GitHub：[`wjl8636/AIopsAgent`](https://github.com/wjl8636/AIopsAgent)。
 
 **运行环境：以 Kubernetes 为主**——生产运维基本盘就是 k8s，诊断 Agent 的观测（`kubectl get/describe/top`）与自动止血（`kubectl rollout restart` / `delete pod` / `set resources`）都以 kubectl 为主形态。为了让学员**零门槛先跑通**，默认后端是 **docker**（一台机器 `docker compose up` 即可，无需集群）；想体验生产形态就 `export AIOPS_BACKEND=k8s` 并起一个 kind 集群（见 [快速开始](#快速开始)）。两套后端语义一一对应，切换只改一个环境变量，代码其余部分无感知。
 
@@ -287,9 +287,9 @@ python3 -m eval.run --only s2 s4     # 跑指定子集，输出 通过/成本/�
 | B：关指纹去重 | 0.8696 | 0.8261 | 0.6957 | 1.000 | 1.000 | 3.300 | 1.000 |
 | C：Haiku 兜底 | 0.6957 | 0.6522 | 0.6087 | 0.7143 | 0.600 | 1.800 | 1.000 |
 
-> 完整配置下 MTTR p50 = 3.26 分钟；对比 Google SRE Book / DORA 报告行业中位数（30–60 分钟），约加速 **9–18×**（用 low 端算约 9.2 倍）。行业数据为**引用公开均值**，非本项目内人工对照实验——话术口径见教学文档。
+> 完整配置下 MTTR p50 = 3.26 分钟；对比 Google SRE Book / DORA 报告行业中位数（30–60 分钟），约加速 **9–18×**（用 low 端算约 9.2 倍）。行业数据为**引用公开均值**，非本项目内人工对照实验。
 
-**训练侧三档对比**（`reports/` 下 Qwen 档，由 [`aiops-agentic-rl`](../aiops-agentic-rl/) 仓库训出的 checkpoint 评测）：zero-shot 25 rows = 0.48/0.52/0.36；v9-SFT 37 rows = 0.5676/0.6757/0.4595；GRPO step15 25 rows = **0.80/0.72/0.64**；Opus 参照 23 rows 全线约 0.913。
+**训练侧三档对比**（`reports/` 下 Qwen 档，由 [`aiops-agentic-rl`](https://github.com/wjl8636/aiops-agentic-rl) 仓库训出的 checkpoint 评测）：zero-shot 25 rows = 0.48/0.52/0.36；v9-SFT 37 rows = 0.5676/0.6757/0.4595；GRPO step15 25 rows = **0.80/0.72/0.64**；Opus 参照 23 rows 全线约 0.913。
 
 ## 配置（环境变量，见 `.env.example`）
 `AIOPS_BACKEND`（`docker` 默认 / `k8s`）、`AIOPS_K8S_NAMESPACE`（默认 `otel-demo`）、`AIOPS_REMEDIATION_ENABLED`、`AIOPS_REMEDIATION_TARGETS`、`FEISHU_WEBHOOK_URL`、`GITHUB_TOKEN/UPSTREAM_OWNER/REPO/FORK_OWNER`、`PROMETHEUS_URL`、`JAEGER_URL`、`CONFIDENCE_THRESHOLD`、`DIAGNOSE_MAX_TURNS/TIMEOUT_S`、`FIX_MAX_TURNS/TIMEOUT_S`、`AIOPS_MODEL`、`AIOPS_RAG_ENABLED`、`MILVUS_URI`、`AIOPS_EMBEDDING_MODEL`。
@@ -327,4 +327,4 @@ python3 -m pytest tests/            # 单元测试（schema 等）
 
 ## 与 aiops-agentic-rl 的关系
 
-[`aiops-agentic-rl/`](../aiops-agentic-rl/) 是本项目（应用侧）的**训练侧延展仓库**：用 Cold Start SFT + GRPO 把「故障诊断处置 Agent」的决策底座从 Claude Opus 换成自训 Qwen3.5-9B + LoRA。它以 **git submodule** 形式只读消费本仓库的 SDK 接口与判定信号（hook allow/deny、schema 校验、白名单命中），并在其 `eval/run.py` + 13 个真实 docker 场景上完成三档对比评测。诊断出的 checkpoint 可通过 `AIOPS_MODEL` / `AIOPS_LLM_BASE_URL` 环境变量切回本仓库使用（见 `.env.example` 中 AIOPS_LLM_* 注释块）。
+[`aiops-agentic-rl`](https://github.com/wjl8636/aiops-agentic-rl) 是本项目（应用侧）的**训练侧延展仓库**：用 Cold Start SFT + GRPO 把「故障诊断处置 Agent」的决策底座从 Claude Opus 换成自训 Qwen3.5-9B + LoRA。它以 **git submodule** 形式只读消费本仓库的 SDK 接口与判定信号（hook allow/deny、schema 校验、白名单命中），并在其 `eval/run.py` + 13 个真实 docker 场景上完成三档对比评测。诊断出的 checkpoint 可通过 `AIOPS_MODEL` / `AIOPS_LLM_BASE_URL` 环境变量切回本仓库使用（见 `.env.example` 中 AIOPS_LLM_* 注释块）。
