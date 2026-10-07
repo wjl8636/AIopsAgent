@@ -1,0 +1,12 @@
+.idea/
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+workspace
+*.log
+vendor/
+deploys.log
+app/
